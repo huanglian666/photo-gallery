@@ -75,24 +75,45 @@ export function initLightbox(){
     });
   }
 
-  function show(i){
+  /**
+   * 换图。
+   *
+   * 关键：给 <img> 换 src 后，浏览器会一直显示【旧图】直到新图加载完 ——
+   * 这正是「点开放大看到的是上一次那张」的原因。所以顺序必须是：
+   * 先把旧图藏掉 → 再换 src → 等 lbImg 自己 load 完 → 才淡入。
+   *
+   * 不能在设置 src 的同一帧就把 opacity 设回 1：那时新图还没解码，
+   * 显示的仍然是旧图。
+   *
+   * @param {boolean} instant 刚打开灯箱时为 true：不做过渡，旧图必须立刻消失，
+   *                          否则它会在 0.3s 的淡出过程里露一下。
+   */
+  function show(i, instant){
     index = i;
     const item = list[index];
     if (!item) return;
+
     resetView();
-    lbImg.style.opacity = '0';
-    const pre = new Image();
-    pre.onload = () => { lbImg.src = item.full; lbImg.style.opacity = '1'; };
-    pre.onerror = () => { lbImg.src = item.full; lbImg.style.opacity = '1'; };
-    pre.src = item.full;
     renderTags(item.tags);
+
+    if (lbImg.getAttribute('src') === item.full){   // 同一张，不用重新加载
+      lbImg.style.opacity = '1';
+      return;
+    }
+
+    if (instant) lbImg.style.transition = 'none';
+    lbImg.style.opacity = '0';
+    if (instant) requestAnimationFrame(() => { lbImg.style.transition = ''; });
+
+    lbImg.addEventListener('load', () => { lbImg.style.opacity = '1'; }, { once:true });
+    lbImg.src = item.full;
   }
 
   function open(items, i){
     list = items;
     lb.classList.add('is-open');
     document.body.style.overflow = 'hidden';
-    show(i);
+    show(i, true);
   }
 
   function close(){
