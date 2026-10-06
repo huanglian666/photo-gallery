@@ -1,0 +1,51 @@
+{{- /*
+  输入一个相册 Page，返回它在「分类」意义上应展示的全部照片。
+
+  ── 为什么需要这个 ──
+  目录模型是「一个目录 = 照片的主分类」，一张照片物理上只能放在一处。
+  但分类之间常常是【多对多】—— 同一张照片既属于「旅途足迹」，
+  也属于「美好瞬间」，目录结构表达不了这种关系。
+
+  所以：照片仍有一个主目录，同时可以在 front matter 里声明额外归属的
+  分类（写进 tags）。这个 partial 把两边合起来：
+
+      本分类 = 本目录下的照片 ∪ 其他相册里标签命中本分类标题的照片
+
+  按资源的 RelPermalink 去重 —— 不能用文件名，因为不同相册里可能有
+  同名文件（每个相册都有 001.jpg 是很常见的），那会把它们误判成同一张。
+  按拍摄时间倒序。
+
+  ── 用法 ──
+  在某张照片的主目录 index.md 里：
+
+      resources:
+        - src: "IMG_001.jpg"
+          params:
+            tags: ["美好瞬间"]      # 这张同时也属于「美好瞬间」
+
+  然后「美好瞬间」那一页就会带上它，不需要复制文件。
+*/ -}}
+
+{{- $key  := .Title -}}
+{{- $seen := dict -}}
+{{- $out  := slice -}}
+
+{{/* 1) 本目录下的照片 */}}
+{{- range partial "photo-list.html" . -}}
+  {{- $out  = $out | append . -}}
+  {{- $seen = merge $seen (dict .img.RelPermalink true) -}}
+{{- end -}}
+
+{{/* 2) 其他相册里、标签命中本分类的照片 */}}
+{{- range (site.GetPage "/albums").Pages -}}
+  {{- if ne .Title $key -}}
+    {{- range partial "photo-list.html" . -}}
+      {{- if and (in .tags $key) (not (index $seen .img.RelPermalink)) -}}
+        {{- $out  = $out | append . -}}
+        {{- $seen = merge $seen (dict .img.RelPermalink true) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return sort $out "date" "desc" -}}

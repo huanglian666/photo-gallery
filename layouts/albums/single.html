@@ -1,5 +1,6 @@
 {{ define "main" }}
-{{- $photos := partial "photo-list.html" . -}}
+{{- /* 本目录的照片 + 其他相册里标签命中本分类的照片（多对多） */ -}}
+{{- $photos := partial "category-photos.html" . -}}
 {{- $items  := slice -}}
 
 {{- range $photos -}}

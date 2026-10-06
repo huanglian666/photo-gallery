@@ -1,9 +1,14 @@
 {{ define "main" }}
 {{- /* 把全部相册的照片汇总，按拍摄时间倒序 —— 归档页是跨相册的 */ -}}
-{{- $all := slice -}}
+{{- $all  := slice -}}
+{{- $seen := dict -}}
 {{- range (site.GetPage "/albums").Pages.ByWeight -}}
   {{- range partial "photo-list.html" . -}}
-    {{- $all = $all | append . -}}
+    {{- /* 一张照片可能同时属于多个分类，归档里只应出现一次 */ -}}
+    {{- if not (index $seen .img.RelPermalink) -}}
+      {{- $all  = $all | append . -}}
+      {{- $seen = merge $seen (dict .img.RelPermalink true) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- $all = sort $all "date" "desc" -}}
