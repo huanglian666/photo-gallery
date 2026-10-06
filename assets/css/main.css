@@ -65,6 +65,14 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 #view-home{position:relative;overflow:hidden}
 
 /* ---------- L0 背景照片：退成氛围，不跟牌抢戏 ---------- */
+/* 纯色背景模式：卡片是唯一主体。
+   不是死平的 #000 —— 中心极轻微提亮、边缘压深。
+   平到没有层次的黑会显廉价，这一点点渐变才撑得起纵深。 */
+#view-home.bg-solid{
+  background:radial-gradient(ellipse 78% 62% at 50% 42%,
+    #0f0f13 0%,#0a0a0d 38%,var(--base) 68%,#050506 100%);
+}
+
 .bg-layer{position:fixed;inset:0;z-index:0;overflow:hidden}
 .bg-layer img{
   width:100%;height:100%;object-fit:cover;

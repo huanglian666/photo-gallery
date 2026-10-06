@@ -13,6 +13,8 @@
   ── 拍摄时间的来源与优先级 ──
   由 params.dateSource 决定（默认 "auto"）：
 
+    （front matter 里显式写的 date 永远优先，压过下面所有自动推断）
+
     auto      文件名 → EXIF → 相册 photoDate      （默认）
     exif      EXIF → 文件名 → 相册 photoDate
     filename  文件名 → 相册 photoDate
@@ -60,9 +62,16 @@
     {{- end -}}
   {{- end -}}
 
-  {{- $order := slice $fromName $fromExif -}}
+  {{- /* front matter 里显式指定的日期优先级最高，压过自动推断 */ -}}
+  {{- $own      := index $overrides .Name | default dict -}}
+  {{- $explicit := false -}}
+  {{- with $own.date -}}
+    {{- $explicit = time.AsTime . -}}
+  {{- end -}}
+
+  {{- $order := slice $explicit $fromName $fromExif -}}
   {{- if eq $dateSource "exif" -}}
-    {{- $order = slice $fromExif $fromName -}}
+    {{- $order = slice $explicit $fromExif $fromName -}}
   {{- end -}}
 
   {{- range $order -}}
@@ -77,7 +86,6 @@
     {{- $has = true -}}
   {{- end -}}
 
-  {{- $own  := index $overrides .Name | default dict -}}
   {{- $tags := union ($own.tags | default slice) $albumTags -}}
 
   {{- $out = $out | append (dict

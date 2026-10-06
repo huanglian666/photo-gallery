@@ -1,4 +1,5 @@
 {{ define "main" }}
+{{- $bgMode     := site.Params.homeBackground | default "solid" -}}
 {{- $albumPages := (site.GetPage "/albums").Pages.ByWeight -}}
 {{- $cards       := slice -}}
 {{- $backgrounds := slice -}}
@@ -26,17 +27,21 @@
           "url"   $album.RelPermalink
     ) -}}
 
-    {{- /* 背景候选：每个相册取最新的 4 张，够随机又不至于把 JSON 撑大 */ -}}
-    {{- range first 4 $photos -}}
-      {{- $t := partial "thumb.html" (dict "img" .img) -}}
-      {{- $backgrounds = $backgrounds | append $t.RelPermalink -}}
+    {{- /* 背景候选：只有 photo 模式才需要，solid 模式连图都不下载 */ -}}
+    {{- if eq $bgMode "photo" -}}
+      {{- range first 4 $photos -}}
+        {{- $t := partial "thumb.html" (dict "img" .img) -}}
+        {{- $backgrounds = $backgrounds | append $t.RelPermalink -}}
+      {{- end -}}
     {{- end -}}
 
   {{- end -}}
 {{- end -}}
 
-<section class="view" id="view-home">
+<section class="view{{ if eq $bgMode "solid" }} bg-solid{{ end }}" id="view-home">
+  {{- if eq $bgMode "photo" }}
   <div class="bg-layer"><img id="bg-img" alt=""></div>
+  {{- end }}
 
   <header class="topbar">
     <div class="brand">{{ site.Params.brandZh }}<small>{{ site.Params.brandEn }}</small></div>
