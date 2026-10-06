@@ -1,0 +1,14 @@
+# 主题元数据：Hugo Themes 站点和 `hugo new theme` 都读这个文件
+name        = "Photo Gallery"
+license     = "MIT"
+licenselink = "https://github.com/huanglian666/photo-gallery/blob/main/LICENSE"
+description = "以照片展示为核心的画廊主题。首页是扑克牌扇形牌堆，点开是等高行对齐网格，另有按拍摄时间分组的归档页。只缩尺寸不压画质，灯箱看原图。"
+homepage    = "https://github.com/huanglian666/photo-gallery"
+demosite    = "https://github.com/huanglian666/photo-gallery"
+tags        = ["gallery", "photography", "portfolio", "album", "responsive", "dark", "lightbox", "photos"]
+features    = ["扑克牌扇形首页", "等高行对齐网格", "EXIF 拍摄时间归档", "年份筛选", "灯箱缩放平移", "标签", "懒加载", "零 JS 依赖"]
+min_version = "0.155.0"
+
+[author]
+  name     = "黄炼"
+  homepage = "https://github.com/huanglian666"

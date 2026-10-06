@@ -1,0 +1,30 @@
+{{- /*
+  生成网格 / 牌面的缩略图。
+
+  只做「缩到显示尺寸」这一件事：
+    - 保持原格式（thumbFormat = "auto"），不转码
+    - 质量 95，显示尺寸下等同视觉无损
+    - 原图比目标还小就不处理，放大只会变糊
+
+  灯箱看大图不走这里，直接用原图。
+
+  输入 dict: img(图片资源), width(可选，覆盖站点配置)
+  返回: 处理后的图片资源
+*/ -}}
+
+{{- $img := .img -}}
+{{- $w   := .width | default site.Params.thumbWidth | default 800 -}}
+{{- $q   := site.Params.thumbQuality | default 95 -}}
+
+{{- $target := $w -}}
+{{- if le $img.Width $w -}}
+  {{- $target = $img.Width -}}
+{{- end -}}
+
+{{- $thumb := $img.Resize (printf "%dx q%d" $target $q) -}}
+
+{{- if eq site.Params.thumbFormat "webp" -}}
+  {{- $thumb = $thumb.Process (printf "webp q%d" $q) -}}
+{{- end -}}
+
+{{- return $thumb -}}

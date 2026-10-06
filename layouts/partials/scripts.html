@@ -1,0 +1,11 @@
+{{- /*
+  esbuild 打包：main.js 里的 import 会被内联成一个文件。
+  生产环境压缩，开发环境保留可读性方便调试。
+*/ -}}
+{{- $opts := dict
+      "target" "es2020"
+      "format" "iife"
+      "minify" hugo.IsProduction
+-}}
+{{- $js := resources.Get "js/main.js" | js.Build $opts | fingerprint -}}
+<script src="{{ $js.RelPermalink }}" integrity="{{ $js.Data.Integrity }}" defer></script>

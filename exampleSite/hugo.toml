@@ -1,0 +1,45 @@
+# ============================================================================
+# 示例站点配置
+#
+# 【重要】建自己的站点时，把下面这份整个复制过去再改。
+#
+# 为什么不能只写 baseURL 和 title：Hugo 会合并主题的 [params]，
+# 但不会合并主题的 [imaging]。图片处理参数必须写在站点这里，
+# 否则 JPEG 质量会掉回 Hugo 默认的 75、重采样退回 box —— 对照片站是灾难。
+# ============================================================================
+
+baseURL = "/"
+title   = "影集"
+
+# 用本地主题目录；从 GitHub 拉下来时改成 theme = "photo-gallery"
+# 注意：TOML 里裸键必须写在所有 [table] 之前，
+# 写到 [imaging] 后面会被解析成 imaging.xxx.theme，静默失效。
+theme = "../.."
+
+defaultContentLanguage = "zh"
+timeZone = "Asia/Shanghai"
+
+# 本站只有「相册 + 归档」，用不到分类法。
+# 不关掉的话，相册 front matter 里的 tags 会被当成 Hugo 内置标签分类，
+# 生成一堆 /tags/ 页面（而且因为主题没有对应模板会报 warning）。
+disableKinds = ["taxonomy", "term", "RSS", "sitemap"]
+
+# ---------------------------------------------------------------------------
+# 图片处理 —— 必须放在站点配置里
+#
+# Hugo 处理 JPEG 的默认质量只有 75，对照片站明显偏糊，这里拉到 95。
+# Lanczos 是缩图质量最好的重采样算法（默认的 box 快但糊）。
+# ---------------------------------------------------------------------------
+[imaging]
+  resampleFilter = "Lanczos"
+
+[imaging.jpeg]
+  quality = 95
+
+[imaging.webp]
+  quality = 95
+  hint    = "photo"
+
+[imaging.avif]
+  quality = 95
+  hint    = "photo"

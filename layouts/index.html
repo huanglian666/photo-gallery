@@ -1,0 +1,61 @@
+{{ define "main" }}
+{{- $albumPages := (site.GetPage "/albums").Pages.ByWeight -}}
+{{- $cards       := slice -}}
+{{- $backgrounds := slice -}}
+
+{{- range $albumPages -}}
+  {{- $album  := . -}}
+  {{- $photos := partial "photo-list.html" $album -}}
+  {{- if $photos -}}
+
+    {{- /* 封面：优先 front matter 指定的 cover，否则用拍摄时间最新的一张 */ -}}
+    {{- $cover := "" -}}
+    {{- with $album.Params.cover -}}
+      {{- $cover = $album.Resources.GetMatch . -}}
+    {{- end -}}
+    {{- if not $cover -}}
+      {{- $cover = (index $photos 0).img -}}
+    {{- end -}}
+
+    {{- $thumb := partial "thumb.html" (dict "img" $cover) -}}
+    {{- $cards = $cards | append (dict
+          "name"  $album.Title
+          "en"    ($album.Params.englishName | default "")
+          "count" (len $photos)
+          "src"   $thumb.RelPermalink
+          "url"   $album.RelPermalink
+    ) -}}
+
+    {{- /* 背景候选：每个相册取最新的 4 张，够随机又不至于把 JSON 撑大 */ -}}
+    {{- range first 4 $photos -}}
+      {{- $t := partial "thumb.html" (dict "img" .img) -}}
+      {{- $backgrounds = $backgrounds | append $t.RelPermalink -}}
+    {{- end -}}
+
+  {{- end -}}
+{{- end -}}
+
+<section class="view" id="view-home">
+  <div class="bg-layer"><img id="bg-img" alt=""></div>
+
+  <header class="topbar">
+    <div class="brand">{{ site.Params.brandZh }}<small>{{ site.Params.brandEn }}</small></div>
+    <a class="navlink" href="{{ "archive/" | relURL }}">归档 ARCHIVE</a>
+  </header>
+
+  <div class="deck-stage" id="stage">
+    <div class="deck" id="deck"></div>
+  </div>
+
+  <div class="hint"><i></i>拖动牌堆 · 点击进入分类<i></i></div>
+</section>
+
+<script type="application/json" id="page-data">{{ dict
+  "albums"      $cards
+  "backgrounds" $backgrounds
+  "deck" (dict
+    "maxWidth" (site.Params.deckCardMaxWidth | default 380)
+    "ratio"    (site.Params.deckCardRatio    | default 1.5)
+  )
+| jsonify | safeJS }}</script>
+{{ end }}

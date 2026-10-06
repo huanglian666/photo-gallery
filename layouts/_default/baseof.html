@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+  {{ partial "head.html" . }}
+</head>
+{{- $kind := "album" -}}
+{{- if .IsHome -}}
+  {{- $kind = "home" -}}
+{{- else if eq .Section "archive" -}}
+  {{- $kind = "archive" -}}
+{{- end -}}
+<body data-page="{{ $kind }}">
+  {{ block "main" . }}{{ end }}
+  {{ partial "lightbox.html" . }}
+  {{ partial "scripts.html" . }}
+</body>
+</html>

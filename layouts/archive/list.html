@@ -1,0 +1,45 @@
+{{ define "main" }}
+{{- /* 把全部相册的照片汇总，按拍摄时间倒序 —— 归档页是跨相册的 */ -}}
+{{- $all := slice -}}
+{{- range (site.GetPage "/albums").Pages.ByWeight -}}
+  {{- range partial "photo-list.html" . -}}
+    {{- $all = $all | append . -}}
+  {{- end -}}
+{{- end -}}
+{{- $all = sort $all "date" "desc" -}}
+
+{{- $items := slice -}}
+{{- range $all -}}
+  {{- $thumb := partial "thumb.html" (dict "img" .img) -}}
+  {{- /* ym / y 是 Hugo 格式化好的字符串，前端不做日期解析，避免时区偏移。
+         has=false 的照片归入「未标注时间」 */ -}}
+  {{- $items = $items | append (dict
+        "thumb" $thumb.RelPermalink
+        "full"  .img.RelPermalink
+        "ar"    .ar
+        "ym"    .ym
+        "y"     .y
+        "has"   .has
+        "tags"  .tags
+  ) -}}
+{{- end -}}
+
+<section class="view" id="view-archive">
+  <header class="page-head">
+    <a class="back" href="{{ "/" | relURL }}">
+      <svg width="15" height="10" viewBox="0 0 15 10" fill="none" aria-hidden="true">
+        <path d="M5 1L1 5l4 4M1 5h13" stroke="currentColor" stroke-width="1.3"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>返回
+    </a>
+    <h1 class="page-title">{{ .Title }}</h1>
+    <span class="page-meta" id="arc-meta"></span>
+  </header>
+
+  {{- /* 桌面端 fixed 在右侧，窄屏靠 DOM 顺序落在标题下方 */ -}}
+  <nav class="year-rail" id="year-rail" aria-label="按年份筛选"></nav>
+  <div class="timeline" id="timeline"></div>
+</section>
+
+<script type="application/json" id="page-data">{{ dict "photos" $items | jsonify | safeJS }}</script>
+{{ end }}
