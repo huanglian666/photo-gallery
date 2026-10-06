@@ -15,6 +15,20 @@
   deckCardMaxWidth = 380      # 单张牌最大宽度 px（实际还会受视口宽高约束）
   deckCardRatio    = 1.5      # 牌高 / 牌宽，2:3 是标准扑克比例
 
+  # ---------- 拍摄时间 ----------
+  # 来源优先级：
+  #   auto      文件名 → EXIF → 相册 photoDate   （默认）
+  #   exif      EXIF → 文件名 → 相册 photoDate
+  #   filename  文件名 → 相册 photoDate
+  #
+  # 默认文件名优先，因为 EXIF 可能被传输工具改写成拷贝时间
+  # （整批照片时间戳一样），而文件名编码的拍摄时间不会被改。
+  # 文件名里没日期时（如 iPhone 的 IMG_1234.HEIC）会自动落到 EXIF。
+  dateSource = "auto"
+
+  # 解析毫秒时间戳（微信导出的 mmexport*）时用的时区
+  timeZone = "Asia/Shanghai"
+
   # ---------- 图片网格 ----------
   gridGap          = 8        # 网格间距 px
   gridTargetHeight = 296      # 桌面端目标行高 px（窄屏自动缩小）

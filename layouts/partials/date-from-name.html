@@ -1,0 +1,72 @@
+{{- /*
+  从文件名推断拍摄时间。
+
+  输入：文件名（字符串）
+  返回：time.Time；推断不出来返回 false
+
+  ── 为什么需要这个 ──
+  EXIF 并不总是可信。很多传输链路会把它覆盖掉：
+    · 微信 / QQ 导出会直接剥掉 EXIF
+    · 部分安卓传输工具会把 DateTimeOriginal 改写成【拷贝时间】
+  后者的表现很有迷惑性 —— EXIF 里确实有值，但整批照片的时间戳
+  一模一样（都是拷贝那一刻），按它归档会把所有照片堆到同一天。
+
+  而手机相机的文件名本身就编码了拍摄时间，且不会被传输工具改动：
+    IMG_20260801_212545.jpg      → 2026-08-01 21:25:45   (安卓相机)
+    mmexport1778327064654.jpg    → 2026-05-09 19:44:24   (微信，毫秒时间戳)
+    Screenshot_2026-08-01-21-25-45.png
+    20260801_212545.jpg
+    2026-08-01-xxx.jpg
+
+  ── 时区 ──
+  前几类模式解析出的是「墙上时间」，不带时区，直接按原值格式化即可，
+  不做换算。毫秒时间戳是绝对时刻，按站点时区解读，避免跨日偏移。
+*/ -}}
+
+{{- $name := . -}}
+{{- $loc  := site.Params.timeZone | default "Asia/Shanghai" -}}
+{{- $s    := "" -}}
+
+{{/* 1) YYYYMMDD_HHMMSS —— 安卓相机直出：IMG_20260801_212545.jpg */}}
+{{- with findRE `(?:19|20)\d{6}[_-]\d{6}` $name 1 -}}
+  {{- $v := index . 0 -}}
+  {{- $s = printf "%s-%s-%sT%s:%s:%s"
+        (substr $v 0 4) (substr $v 4 2) (substr $v 6 2)
+        (substr $v 9 2) (substr $v 11 2) (substr $v 13 2) -}}
+{{- end -}}
+
+{{/* 2) YYYYMMDDHHMMSS —— 同样 14 位但不带分隔符 */}}
+{{- if not $s -}}
+  {{- with findRE `(?:19|20)\d{12}` $name 1 -}}
+    {{- $v := index . 0 -}}
+    {{- $s = printf "%s-%s-%sT%s:%s:%s"
+          (substr $v 0 4) (substr $v 4 2) (substr $v 6 2)
+          (substr $v 8 2) (substr $v 10 2) (substr $v 12 2) -}}
+  {{- end -}}
+{{- end -}}
+
+{{/* 3) YYYY-MM-DD 或 YYYY_MM_DD */}}
+{{- if not $s -}}
+  {{- with findRE `(?:19|20)\d{2}[-_]\d{2}[-_]\d{2}` $name 1 -}}
+    {{- $v := index . 0 -}}
+    {{- $s = printf "%s-%s-%sT12:00:00"
+          (substr $v 0 4) (substr $v 5 2) (substr $v 8 2) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $s -}}
+  {{- return time.AsTime $s -}}
+{{- end -}}
+
+{{/* 4) 13 位毫秒时间戳 —— 微信导出：mmexport1778327064654.jpg
+      放在最后，避免把上面几种 14 位数字串误截成 13 位 */}}
+{{- $ms := $name | replaceRE `^.*?(?:^|\D)(\d{13})(?:\D|$).*$` "$1" -}}
+{{- if ne $ms $name -}}
+  {{- $t := time.AsTime (div (int $ms) 1000) $loc -}}
+  {{- $y := $t.Year -}}
+  {{- if and (ge $y 1990) (le $y 2100) -}}
+    {{- return $t -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return false -}}

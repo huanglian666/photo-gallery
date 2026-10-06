@@ -3,29 +3,38 @@
 
   每项是一个 dict：
     img  : 图片资源（可继续 .Resize / .RelPermalink / .Width / .Height）
-    date : 拍摄时间；无 EXIF 时为 1970-01-01
+    date : 拍摄时间；无来源时为 1970-01-01
     has  : 是否真有拍摄时间（false 的在归档页归入「未标注时间」）
     ym   : "2026-08" 形式，归档页分组用
     y    : "2026" 形式，年份筛选用
     ar   : 宽高比（宽 / 高），网格布局要用
     tags : 该图的标签 = 相册级 tags ∪ 单图级 tags
 
-  ── 拍摄时间 ──
-  优先取 EXIF DateTimeOriginal（0x9003）—— 手机原图必然带。
-  兜底顺序：EXIF → 相册 front matter 的 photoDate → 1970（视为未标注）。
+  ── 拍摄时间的来源与优先级 ──
+  由 params.dateSource 决定（默认 "auto"）：
 
-  注意：EXIF 里没有时区，存的是「拍摄当时的本地时间」。
-  所以下面格式化时不做任何时区换算，直接按原值输出，
+    auto      文件名 → EXIF → 相册 photoDate      （默认）
+    exif      EXIF → 文件名 → 相册 photoDate
+    filename  文件名 → 相册 photoDate
+
+  默认把文件名排在 EXIF 前面，是因为 EXIF 并不总是可信：
+  很多传输工具会把 DateTimeOriginal 改写成【拷贝时间】，整批照片的
+  时间戳一模一样，按它归档会把所有照片堆到同一天。而手机相机的
+  文件名本身就编码了拍摄时间，且不会被传输工具改动。
+
+  文件名里没有日期时（例如 iPhone 的 IMG_1234.HEIC）会自动落到 EXIF，
+  所以这个顺序在常规场景下也是安全的。如果你的文件名不可信、
+  而 EXIF 可信，把 dateSource 设成 "exif"。
+
+  ── 时区 ──
+  EXIF 和文件名解析出的都是「墙上时间」，不做任何时区换算，
   否则跨时区拍的照片日期会偏移一天。
-
-  ── 标签 ──
-  两级：相册 front matter 的 tags 作用于整个相册；
-  单图的标签写在 resources 数组里（见 layouts 说明）。
 */ -}}
 
-{{- $unknown   := time.AsTime "1970-01-01" -}}
-{{- $fallback  := .Params.photoDate -}}
-{{- $albumTags := .Params.tags | default slice -}}
+{{- $unknown    := time.AsTime "1970-01-01" -}}
+{{- $fallback   := .Params.photoDate -}}
+{{- $albumTags  := .Params.tags | default slice -}}
+{{- $dateSource := site.Params.dateSource | default "auto" -}}
 
 {{/* 把 resources 里声明的单图元数据摊平成 文件名 → params 的查找表 */}}
 {{- $overrides := dict -}}
@@ -39,12 +48,26 @@
   {{- $d   := $unknown -}}
   {{- $has := false -}}
 
+  {{- /* 两个候选来源，各自可能是 false */ -}}
+  {{- $fromName := partial "date-from-name.html" .Name -}}
+  {{- $fromExif := false -}}
   {{- /* Hugo 0.155+ 的 Image.Meta：日期直接在 .Meta.Date 上。
-         .Meta.Exif 是个 map（DateTimeOriginal 等原始标签），不是结构体，
-         写成 .Meta.Exif.Date 会静默取到 nil。 */ -}}
+        .Meta.Exif 是个 map（DateTimeOriginal 等原始标签）不是结构体，
+        写成 .Meta.Exif.Date 会静默取到 nil。 */ -}}
   {{- with .Meta -}}
     {{- if not .Date.IsZero -}}
-      {{- $d   = .Date -}}
+      {{- $fromExif = .Date -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{- $order := slice $fromName $fromExif -}}
+  {{- if eq $dateSource "exif" -}}
+    {{- $order = slice $fromExif $fromName -}}
+  {{- end -}}
+
+  {{- range $order -}}
+    {{- if and (not $has) . -}}
+      {{- $d   = . -}}
       {{- $has = true -}}
     {{- end -}}
   {{- end -}}
