@@ -52,7 +52,13 @@
     <div class="deck" id="deck"></div>
   </div>
 
-  <div class="hint"><i></i>拖动牌堆 · 点击进入分类<i></i></div>
+  {{/* 宽屏走扇形（悬停选中），窄屏走横向一手牌（滑动选中），提示文案跟着换 */}}
+  <div class="hint">
+    <i></i>
+    <span class="hint-wide">拖动牌堆 · 点击进入分类</span>
+    <span class="hint-narrow">左右滑动挑选 · 点击进入</span>
+    <i></i>
+  </div>
 </section>
 
 <script type="application/json" id="page-data">{{ dict
