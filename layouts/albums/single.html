@@ -4,11 +4,11 @@
 {{- $items  := slice -}}
 
 {{- range $photos -}}
-  {{- $thumb := partial "thumb.html" (dict "img" .img) -}}
-  {{- /* full 指向原图：Hugo 不处理，点开看到的永远是原始文件 */ -}}
+  {{- /* thumb / full 已由 photo-list.html 备好：本地图 full 指原图，
+        远程图 full 指图床地址。两者都不经 Hugo 处理，点开看到的永远是原图 */ -}}
   {{- $items = $items | append (dict
-        "thumb" $thumb.RelPermalink
-        "full"  .img.RelPermalink
+        "thumb" .thumb
+        "full"  .full
         "ar"    .ar
         "tags"  .tags
   ) -}}

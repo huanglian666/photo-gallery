@@ -11,8 +11,9 @@
 
       本分类 = 本目录下的照片 ∪ 其他相册里标签命中本分类标题的照片
 
-  按资源的 RelPermalink 去重 —— 不能用文件名，因为不同相册里可能有
-  同名文件（每个相册都有 001.jpg 是很常见的），那会把它们误判成同一张。
+  按 key 去重（本地图 = 原图 RelPermalink，远程图 = 图床 URL）—— 不能用
+  文件名，因为不同相册里可能有同名文件（每个相册都有 001.jpg 是很常见的），
+  那会把它们误判成同一张。
   按拍摄时间倒序。
 
   ── 用法 ──
@@ -32,17 +33,21 @@
 
 {{/* 1) 本目录下的照片 */}}
 {{- range partial "photo-list.html" . -}}
-  {{- $out  = $out | append . -}}
-  {{- $seen = merge $seen (dict .img.RelPermalink true) -}}
+  {{- /* 本地文件不会重复，但 remoteImages 里同一个 URL 写两次就会 —— 归档页
+        去重了，这里不去重的话相册页会多出一个一模一样的格子 */ -}}
+  {{- if not (index $seen .key) -}}
+    {{- $out  = $out | append . -}}
+    {{- $seen = merge $seen (dict .key true) -}}
+  {{- end -}}
 {{- end -}}
 
 {{/* 2) 其他相册里、标签命中本分类的照片 */}}
 {{- range (site.GetPage "/albums").Pages -}}
   {{- if ne .Title $key -}}
     {{- range partial "photo-list.html" . -}}
-      {{- if and (in .tags $key) (not (index $seen .img.RelPermalink)) -}}
+      {{- if and (in .tags $key) (not (index $seen .key)) -}}
         {{- $out  = $out | append . -}}
-        {{- $seen = merge $seen (dict .img.RelPermalink true) -}}
+        {{- $seen = merge $seen (dict .key true) -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}

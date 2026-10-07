@@ -4,10 +4,11 @@
 {{- $seen := dict -}}
 {{- range (site.GetPage "/albums").Pages.ByWeight -}}
   {{- range partial "photo-list.html" . -}}
-    {{- /* 一张照片可能同时属于多个分类，归档里只应出现一次 */ -}}
-    {{- if not (index $seen .img.RelPermalink) -}}
+    {{- /* 一张照片可能同时属于多个分类，归档里只应出现一次。
+         去重用 key：本地图是原图 RelPermalink，远程图是图床 URL */ -}}
+    {{- if not (index $seen .key) -}}
       {{- $all  = $all | append . -}}
-      {{- $seen = merge $seen (dict .img.RelPermalink true) -}}
+      {{- $seen = merge $seen (dict .key true) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
@@ -15,12 +16,11 @@
 
 {{- $items := slice -}}
 {{- range $all -}}
-  {{- $thumb := partial "thumb.html" (dict "img" .img) -}}
   {{- /* ym / y 是 Hugo 格式化好的字符串，前端不做日期解析，避免时区偏移。
          has=false 的照片归入「未标注时间」 */ -}}
   {{- $items = $items | append (dict
-        "thumb" $thumb.RelPermalink
-        "full"  .img.RelPermalink
+        "thumb" .thumb
+        "full"  .full
         "ar"    .ar
         "ym"    .ym
         "y"     .y

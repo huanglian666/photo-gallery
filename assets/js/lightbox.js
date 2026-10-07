@@ -105,7 +105,11 @@ export function initLightbox(){
     lbImg.style.opacity = '0';
     if (instant) requestAnimationFrame(() => { lbImg.style.transition = ''; });
 
-    lbImg.addEventListener('load', () => { lbImg.style.opacity = '1'; }, { once:true });
+    const reveal = () => { lbImg.style.opacity = '1'; };
+    lbImg.addEventListener('load',  reveal, { once:true });
+    // 失败也要放出来：远程图（图床 404 / 防盗链 403）加载不出来时，
+    // 只绑 load 会让 opacity 永远停在 0，灯箱一片空白还查不出原因
+    lbImg.addEventListener('error', reveal, { once:true });
     lbImg.src = item.full;
   }
 

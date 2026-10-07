@@ -2,22 +2,42 @@
   输入一个 Page（相册），返回按拍摄时间倒序的照片列表。
 
   每项是一个 dict：
-    img  : 图片资源（可继续 .Resize / .RelPermalink / .Width / .Height）
-    date : 拍摄时间；无来源时为 1970-01-01
-    has  : 是否真有拍摄时间（false 的在归档页归入「未标注时间」）
-    ym   : "2026-08" 形式，归档页分组用
-    y    : "2026" 形式，年份筛选用
-    ar   : 宽高比（宽 / 高），网格布局要用
-    tags : 该图的标签 = 相册级 tags ∪ 单图级 tags
+    thumb : 缩略图 URL（字符串，已按 thumbWidth 缩好）
+    full  : 灯箱大图 URL。本地图 = 原图；远程图 = 图床原始 URL
+    key   : 去重键（本地 = 原图 RelPermalink，远程 = 原始 URL）
+    date  : 拍摄时间；无来源时为 1970-01-01
+    has   : 是否真有拍摄时间（false 的在归档页归入「未标注时间」）
+    ym    : "2026-08" 形式，归档页分组用
+    y     : "2026" 形式，年份筛选用
+    ar    : 宽高比（宽 / 高），网格布局要用
+    tags  : 该图的标签 = 相册级 tags ∪ 单图级 tags
+
+  只对外给字符串，不给资源对象 —— 调用方（single / archive / index）
+  因此不需要知道这张图是本地还是远程，也就不会对远程项误调 .Resize。
+
+  ── 两种来源 ──
+  1) 本地：目录里的图片文件，单图元数据写在 resources[].params（按文件名匹配）
+  2) 远程：front matter 的 remoteImages 数组，元素形如
+
+         remoteImages:
+           - src: "https://cdn.example.com/2026/08/01/IMG_20260801_212545.jpg"
+             date: "2026-08-01 21:25:45"   # 可选，优先级最高
+             tags: ["美好瞬间"]              # 可选，参与跨相册多对多
+
+  远程图用 resources.GetRemote 下载后由 thumb.html 缩略，所以网格的宽高比、
+  thumbWidth / thumbQuality / thumbFormat 对两种来源完全一致。
+
+  灯箱大图远程项直接给原始 URL，不经过 .RelPermalink —— 调它会触发 Hugo
+  把远程原图发布到 public/ 根目录，那就等于把图床又抄了一份到站点上。
 
   ── 拍摄时间的来源与优先级 ──
   由 params.dateSource 决定（默认 "auto"）：
 
     （front matter 里显式写的 date 永远优先，压过下面所有自动推断）
 
-    auto      文件名 → EXIF → 相册 photoDate      （默认）
-    exif      EXIF → 文件名 → 相册 photoDate
-    filename  文件名 → 相册 photoDate
+    auto      文件名/URL → EXIF → 相册 photoDate      （默认）
+    exif      EXIF → 文件名/URL → 相册 photoDate
+    filename  文件名/URL → 相册 photoDate
 
   默认把文件名排在 EXIF 前面，是因为 EXIF 并不总是可信：
   很多传输工具会把 DateTimeOriginal 改写成【拷贝时间】，整批照片的
@@ -27,6 +47,24 @@
   文件名里没有日期时（例如 iPhone 的 IMG_1234.HEIC）会自动落到 EXIF，
   所以这个顺序在常规场景下也是安全的。如果你的文件名不可信、
   而 EXIF 可信，把 dateSource 设成 "exif"。
+
+  远程项喂给 date-from-name.html 的是【URL 去掉 query 和 fragment 后的整串】：
+    · 不能喂 .Name —— 那是 Hugo 的缓存路径，末尾会追加一段 20 位数字 hash，
+      可能被 (?:19|20)\d{12} 这条规则误命中
+    · 去掉 query —— 签名 URL 的参数里常带时间戳，同样会误命中
+    · 保留路径 —— date-from-name.html 有一条 YYYY/MM/DD 规则专认路径里的日期
+      （图床按日期分目录：cdn.example.com/2026/08/01/AbCdEf.jpg，basename 是纯哈希）
+    · 传 noTimestamp=true —— 关掉 13 位毫秒时间戳那条规则。它只认数字串不认
+      上下文，CDN 的哈希里凑出 13 位数字就会被当成微信导出名，凭空造出一个日期
+
+  ── 两条硬约束，改这个文件前先读 ──
+  1) 返回值里【绝不能出现资源对象】。远程资源一旦被调 .RelPermalink /
+     .Permalink / .Publish，Hugo 就会把图床原图发布到 public/ 根目录，
+     等于把图床又抄一份到站点上。只调 .Resize 不会。所以 full 用的是
+     原始 URL 字符串，缩略图也只取处理后的 .RelPermalink。
+  2) 候选顺序是「本地先 append、远程后 append」，而 Hugo 的 sort 是稳定排序，
+     所以同一天的照片永远本地在前、远程在后。首页封面取的是 $photos[0]，
+     调换 append 顺序会静默改变封面。
 
   ── 时区 ──
   EXIF 和文件名解析出的都是「墙上时间」，不做任何时区换算，
@@ -44,29 +82,82 @@
   {{- $overrides = merge $overrides (dict .src (.params | default dict)) -}}
 {{- end -}}
 
+{{/* ── 1) 先把两种来源摊平成同一种候选形状，后面只跑一套日期解析 ── */}}
+{{- $cands := slice -}}
+
+{{/* 本地文件 */}}
+{{- range .Resources.ByType "image" -}}
+  {{- $own := index $overrides .Name | default dict -}}
+  {{- $cands = $cands | append (dict
+        "img"      .
+        "full"     .RelPermalink
+        "key"      .RelPermalink
+        "hint"     .Name
+        "noTs"     false
+        "explicit" ($own.date | default false)
+        "tags"     ($own.tags | default slice)
+  ) -}}
+{{- end -}}
+
+{{/* 远程图床 */}}
+{{- range $entry := .Params.remoteImages -}}
+  {{- $url     := "" -}}
+  {{- $rawDate := false -}}
+  {{- $rawTags := slice -}}
+
+  {{/* 支持两种写法：- src: "..." 的映射，以及直接写一行 URL 的裸字符串。
+       裸字符串不拦住的话，$entry.src 会报 can't evaluate field src in type string，
+       信息量很低，用户看不出是自己写法不对。 */ -}}
+  {{- if reflect.IsMap $entry -}}
+    {{- $url     = $entry.src | default "" -}}
+    {{- $rawDate = $entry.date | default false -}}
+    {{- $rawTags = $entry.tags | default slice -}}
+  {{- else -}}
+    {{- $url = printf "%v" $entry -}}
+  {{- end -}}
+
+  {{- if not $url -}}
+    {{- warnf "相册「%s」的 remoteImages 有一项没写 src，已跳过" $.Title -}}
+  {{- else -}}
+    {{- $r := partial "remote-image.html" (dict "url" $url) -}}
+    {{- with $r.img -}}
+      {{- $cands = $cands | append (dict
+            "img"      .
+            "full"     $url
+            "key"      $url
+            "hint"     (replaceRE "[?#].*$" "" $url)
+            "noTs"     true
+            "explicit" $rawDate
+            "tags"     $rawTags
+      ) -}}
+    {{- else -}}
+      {{- warnf "相册「%s」的远程图取不到，已跳过：%s（%s）" $.Title $url $r.err -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{/* ── 2) 统一解析拍摄时间、算宽高比、生成缩略图 ── */}}
 {{- $out := slice -}}
 
-{{- range .Resources.ByType "image" -}}
-  {{- $d   := $unknown -}}
-  {{- $has := false -}}
+{{- range $cands -}}
+  {{- $img      := .img -}}
+  {{- $explicit := false -}}
+  {{- with .explicit -}}
+    {{- $explicit = time.AsTime . -}}
+  {{- end -}}
 
-  {{- /* 两个候选来源，各自可能是 false */ -}}
-  {{- $fromName := partial "date-from-name.html" .Name -}}
+  {{/* 两个候选来源，各自可能是 false */}}
+  {{- $fromName := partial "date-from-name.html" (dict
+        "name"        .hint
+        "noTimestamp" .noTs) -}}
   {{- $fromExif := false -}}
-  {{- /* Hugo 0.155+ 的 Image.Meta：日期直接在 .Meta.Date 上。
+  {{/* Hugo 0.155+ 的 Image.Meta：日期直接在 .Meta.Date 上。
         .Meta.Exif 是个 map（DateTimeOriginal 等原始标签）不是结构体，
         写成 .Meta.Exif.Date 会静默取到 nil。 */ -}}
-  {{- with .Meta -}}
+  {{- with $img.Meta -}}
     {{- if not .Date.IsZero -}}
       {{- $fromExif = .Date -}}
     {{- end -}}
-  {{- end -}}
-
-  {{- /* front matter 里显式指定的日期优先级最高，压过自动推断 */ -}}
-  {{- $own      := index $overrides .Name | default dict -}}
-  {{- $explicit := false -}}
-  {{- with $own.date -}}
-    {{- $explicit = time.AsTime . -}}
   {{- end -}}
 
   {{- $order := slice $explicit $fromName $fromExif -}}
@@ -74,6 +165,8 @@
     {{- $order = slice $explicit $fromExif $fromName -}}
   {{- end -}}
 
+  {{- $d   := $unknown -}}
+  {{- $has := false -}}
   {{- range $order -}}
     {{- if and (not $has) . -}}
       {{- $d   = . -}}
@@ -86,16 +179,18 @@
     {{- $has = true -}}
   {{- end -}}
 
-  {{- $tags := union ($own.tags | default slice) $albumTags -}}
+  {{- $thumb := partial "thumb.html" (dict "img" $img) -}}
 
   {{- $out = $out | append (dict
-        "img"  .
-        "date" $d
-        "has"  $has
-        "ym"   ($d.Format "2006-01")
-        "y"    ($d.Format "2006")
-        "ar"   (div (float .Width) (float .Height))
-        "tags" $tags
+        "thumb" $thumb.RelPermalink
+        "full"  .full
+        "key"   .key
+        "date"  $d
+        "has"   $has
+        "ym"    ($d.Format "2006-01")
+        "y"     ($d.Format "2006")
+        "ar"    (div (float $img.Width) (float $img.Height))
+        "tags"  (union .tags $albumTags)
   ) -}}
 {{- end -}}
 

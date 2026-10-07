@@ -53,3 +53,13 @@
   thumbQuality = 95           # 95 基本视觉无损；想更狠可以给 100
   thumbFormat  = "auto"       # auto = 保持原格式不转码
                               # webp = 转 WebP，体积更小、画质等价
+
+  # ---------- 远程图床 ----------
+  # 相册 front matter 里的 remoteImages 数组可以放图床 URL，和本地图混用。
+  # 缩略图由 Hugo 构建时下载后按上面的参数缩好，灯箱大图直接指向图床地址
+  # （不会把原图发布到站点上）。写法见 README 的「远程图床」一节。
+  #
+  # 注意：Hugo 下载远程图受 security.http.urls 限制，默认会拦掉写 IP 的、
+  # localhost 的、URL 带凭据的地址；开着 fake-IP 代理时所有域名都会被解析成
+  # 代理的保留地址，于是连普通域名也会被拒。解法见 exampleSite/hugo.toml 的
+  # [security.http] 段（走 proxyFromEnvironment，别覆盖 urls）。

@@ -43,3 +43,28 @@ disableKinds = ["taxonomy", "term", "RSS", "sitemap"]
 [imaging.avif]
   quality = 95
   hint    = "photo"
+
+# ---------------------------------------------------------------------------
+# 拉取远程图床图片的网络设置
+#
+# 相册 front matter 里写 remoteImages 时，Hugo 会用 resources.GetRemote 去下载，
+# 下载受 security.http.urls 限制。默认策略会拦掉三类地址：
+#   · 直接写 IP 的（http://1.2.3.4/x.jpg）
+#   · localhost
+#   · URL 里带凭据的（https://user:pass@host/x.jpg）
+#
+# 【代理 / 科学上网环境】Hugo 是按【解析后的 IP】校验的。开着 fake-IP 模式的
+# 代理时，所有域名都解析成代理的保留地址（常见 198.18.x.x），于是连普通图床
+# 域名都会被判成「IP 不在白名单」而拒绝下载，报错形如：
+#     dial tcp 198.18.0.65:443: access denied: "198.18.0.65" is not whitelisted
+#
+# 正确解法是让 Hugo 走代理，而不是关掉校验 —— 加上下面这行，构建时带上
+# 代理环境变量（端口按自己的代理改）：
+#     HTTP_PROXY=http://127.0.0.1:1082 HTTPS_PROXY=http://127.0.0.1:1082 hugo
+# 走代理后拨号目标是代理本身，Hugo 会跳过地址校验，其余防护照旧生效。
+#
+# 【不要】用 urls = ['(?i)^https?://'] 去绕过 —— 实测那样会把 Hugo 的地址
+# 校验整个关掉（连 127.0.0.1 都能拉）。真要用也必须收窄到自己的图床域名。
+# ---------------------------------------------------------------------------
+[security.http]
+  proxyFromEnvironment = true

@@ -1,0 +1,42 @@
+{{- /*
+  按 URL 取一张远程图片资源（图床）。
+
+  输入 dict: url(字符串)
+  返回 dict:
+    img : 图片资源；取不到时为 false
+    err : 错误说明；成功时为 false
+
+  ── 为什么单独抽一个 partial ──
+  photo-list.html（相册/归档）和 index.html（封面）都要取远程图，
+  而取图这件事有两处必须兜住，不能各写一遍：
+
+    · 404 时 resources.GetRemote 返回 nil 而不报错，不判空就会在
+      后面 .Width 处炸掉整次构建
+    · 网络错误要靠 try 捕获（.Err 方法在 Hugo v0.141.0 已移除）
+
+  调用方拿到 img=false 时应该 warnf 并跳过这一张，而不是中断构建。
+*/ -}}
+
+{{- $url := .url -}}
+{{- $img := false -}}
+{{- $err := false -}}
+
+{{- with try (resources.GetRemote $url) -}}
+  {{- with .Err -}}
+    {{- $err = . -}}
+  {{- else -}}
+    {{- $img = .Value -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if and (not $img) (not $err) -}}
+  {{- $err = "响应为空（404 或非图片）" -}}
+{{- end -}}
+
+{{- /* 拿到 200 但内容不是图片时，后面 .Resize 会失败，这里提前拦掉 */ -}}
+{{- if and $img (ne $img.MediaType.MainType "image") -}}
+  {{- $err = printf "响应不是图片（%s）" $img.MediaType.Type -}}
+  {{- $img = false -}}
+{{- end -}}
+
+{{- return dict "img" $img "err" $err -}}

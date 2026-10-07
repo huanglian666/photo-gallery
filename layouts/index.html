@@ -9,29 +9,40 @@
   {{- $photos := partial "category-photos.html" $album -}}
   {{- if $photos -}}
 
-    {{- /* 封面：优先 front matter 指定的 cover，否则用拍摄时间最新的一张 */ -}}
+    {{- /* 封面：优先 front matter 指定的 cover（本地文件名或图床 URL），
+           否则用拍摄时间最新的一张 */ -}}
     {{- $cover := "" -}}
     {{- with $album.Params.cover -}}
-      {{- $cover = $album.Resources.GetMatch . -}}
+      {{- if or (hasPrefix . "http://") (hasPrefix . "https://") -}}
+        {{- $r := partial "remote-image.html" (dict "url" .) -}}
+        {{- with $r.img -}}
+          {{- $cover = (partial "thumb.html" (dict "img" .)).RelPermalink -}}
+        {{- else -}}
+          {{- warnf "相册「%s」的封面图取不到，回退到最新一张：%s（%s）" $album.Title . $r.err -}}
+        {{- end -}}
+      {{- else -}}
+        {{- with $album.Resources.GetMatch . -}}
+          {{- $cover = (partial "thumb.html" (dict "img" .)).RelPermalink -}}
+        {{- end -}}
+      {{- end -}}
     {{- end -}}
     {{- if not $cover -}}
-      {{- $cover = (index $photos 0).img -}}
+      {{- $cover = (index $photos 0).thumb -}}
     {{- end -}}
 
-    {{- $thumb := partial "thumb.html" (dict "img" $cover) -}}
     {{- $cards = $cards | append (dict
           "name"  $album.Title
           "en"    ($album.Params.englishName | default "")
           "count" (len $photos)
-          "src"   $thumb.RelPermalink
+          "src"   $cover
           "url"   $album.RelPermalink
     ) -}}
 
-    {{- /* 背景候选：只有 photo 模式才需要，solid 模式连图都不下载 */ -}}
+    {{- /* 背景候选：只有 photo 模式才需要。缩略图在 photo-list.html 里已经生成，
+           这里直接取字符串，不再重复取图 */ -}}
     {{- if eq $bgMode "photo" -}}
       {{- range first 4 $photos -}}
-        {{- $t := partial "thumb.html" (dict "img" .img) -}}
-        {{- $backgrounds = $backgrounds | append $t.RelPermalink -}}
+        {{- $backgrounds = $backgrounds | append .thumb -}}
       {{- end -}}
     {{- end -}}
 

@@ -1,6 +1,8 @@
 {{- /* 全站共用的灯箱：分类页和归档页都走这一个 */ -}}
 <div class="lightbox" id="lightbox">
-  <div class="lb-stage"><img id="lb-img" alt=""></div>
+  {{- /* 不带 Referer 请求大图：做防盗链的图床看到站点域名会返回 403，
+        而缩略图是 Hugo 构建时抓的、本来就不带 Referer，不带才和它一致 */ -}}
+  <div class="lb-stage"><img id="lb-img" alt="" referrerpolicy="no-referrer"></div>
   <div class="lb-tags" id="lb-tags"></div>
   <div class="lb-hint">点击放大 · 滚轮 / 双指缩放 · 拖动平移</div>
   <button class="lb-close" id="lb-close">关闭 ESC</button>
